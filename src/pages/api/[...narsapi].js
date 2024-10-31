@@ -243,7 +243,7 @@ function handleCheckAuth(req, res) {
 
 
 
-//Showing the Products
+// Showing the Products
 async function handleSearch(req, res) {
   const { query: searchQuery } = parse(req.url, true).query;
   
@@ -256,19 +256,27 @@ async function handleSearch(req, res) {
     const placeholders = searchTerms.map(() => '(p.name LIKE ? OR p.category LIKE ?)').join(' AND ');
     
     const sql = `
-      SELECT p.*, 
-             COALESCE(AVG(pr.rating), 5) as avg_rating,
-             COUNT(pr.id) as rating_count,
-             COALESCE(ps.quantity, 0) as stock_quantity
+      SELECT 
+        p.*,
+        COALESCE(AVG(pr.rating), 5) as avg_rating,
+        COUNT(pr.id) as rating_count,
+        COALESCE(MAX(ps.quantity), 0) as stock_quantity
       FROM products p
       LEFT JOIN product_ratings pr ON p.id = pr.product_id
       LEFT JOIN product_stocks ps ON p.id = ps.product_id
       WHERE p.deleted = 0 AND (${placeholders})
-      GROUP BY p.id
+      GROUP BY 
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.image_url,
+        p.category,
+        p.supplier_id,
+        p.deleted
     `;
 
     const params = searchTerms.flatMap(term => [term, term]);
-
     const results = await query(sql, params);
     res.status(200).json(results);
   } catch (error) {
@@ -280,15 +288,24 @@ async function handleSearch(req, res) {
 async function handleGetProducts(req, res) {
   try {
     const productsQuery = `
-      SELECT p.*, 
-             COALESCE(AVG(pr.rating), 5) as avg_rating,
-             COUNT(pr.id) as rating_count,
-             COALESCE(ps.quantity, 0) as stock_quantity
+      SELECT 
+        p.*,
+        COALESCE(AVG(pr.rating), 5) as avg_rating,
+        COUNT(pr.id) as rating_count,
+        COALESCE(MAX(ps.quantity), 0) as stock_quantity
       FROM products p
       LEFT JOIN product_ratings pr ON p.id = pr.product_id
       LEFT JOIN product_stocks ps ON p.id = ps.product_id
       WHERE p.deleted = 0
-      GROUP BY p.id
+      GROUP BY 
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.image_url,
+        p.category,
+        p.supplier_id,
+        p.deleted
     `;
     const products = await query(productsQuery);
     res.status(200).json(products);
@@ -303,15 +320,24 @@ async function handleGetProductsByCategory(req, res, category) {
     const decodedCategory = decodeURIComponent(category);
     console.log(`Attempting to fetch products for category: ${decodedCategory}`);
     const productsQuery = `
-      SELECT p.*, 
-             COALESCE(AVG(pr.rating), 5) as avg_rating,
-             COUNT(pr.id) as rating_count,
-             COALESCE(ps.quantity, 0) as stock_quantity
+      SELECT 
+        p.*,
+        COALESCE(AVG(pr.rating), 5) as avg_rating,
+        COUNT(pr.id) as rating_count,
+        COALESCE(MAX(ps.quantity), 0) as stock_quantity
       FROM products p
       LEFT JOIN product_ratings pr ON p.id = pr.product_id
       LEFT JOIN product_stocks ps ON p.id = ps.product_id
       WHERE p.category = ? AND p.deleted = 0
-      GROUP BY p.id
+      GROUP BY 
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.image_url,
+        p.category,
+        p.supplier_id,
+        p.deleted
     `;
     const products = await query(productsQuery, [decodedCategory]);
     console.log(`Fetched ${products.length} products for category: ${decodedCategory}`);
@@ -326,15 +352,24 @@ async function handleGetLimitedItems(req, res) {
   try {
     console.log("Attempting to fetch limited items");
     const limitedItemsQuery = `
-      SELECT p.*, 
-             COALESCE(AVG(pr.rating), 5) as avg_rating,
-             COUNT(pr.id) as rating_count,
-             COALESCE(ps.quantity, 0) as stock_quantity
+      SELECT 
+        p.*,
+        COALESCE(AVG(pr.rating), 5) as avg_rating,
+        COUNT(pr.id) as rating_count,
+        COALESCE(MAX(ps.quantity), 0) as stock_quantity
       FROM products p
       LEFT JOIN product_ratings pr ON p.id = pr.product_id
       LEFT JOIN product_stocks ps ON p.id = ps.product_id
       WHERE p.category = 'Limited Items' AND p.deleted = 0
-      GROUP BY p.id
+      GROUP BY 
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.image_url,
+        p.category,
+        p.supplier_id,
+        p.deleted
     `;
     const limitedItems = await query(limitedItemsQuery);
     console.log("Query result:", limitedItems);
@@ -344,21 +379,21 @@ async function handleGetLimitedItems(req, res) {
     res.status(500).json({ error: 'An error occurred while fetching limited items', details: error.message, stack: error.stack });
   }
 }
-  
-  async function handleGetCategories(req, res) {
-    try {
-      const categories = await query(`
-        SELECT DISTINCT category 
-        FROM products 
-        WHERE deleted = 0 AND category != 'Limited'
-      `);
-      const formattedCategories = categories.map(item => ({ id: item.category, name: item.category }));
-      res.status(200).json(formattedCategories);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      res.status(500).json({ error: 'An error occurred while fetching categories', details: error.message });
-    }
+
+async function handleGetCategories(req, res) {
+  try {
+    const categories = await query(`
+      SELECT DISTINCT category 
+      FROM products 
+      WHERE deleted = 0 AND category != 'Limited'
+    `);
+    const formattedCategories = categories.map(item => ({ id: item.category, name: item.category }));
+    res.status(200).json(formattedCategories);
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({ error: 'An error occurred while fetching categories', details: error.message });
   }
+}
 
 
 
